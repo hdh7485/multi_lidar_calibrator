@@ -32,6 +32,7 @@ include_directories(
 )
 
 SET(CMAKE_CXX_FLAGS "-O2 -g -Wall ${CMAKE_CXX_FLAGS}")
+SET(CMAKE_CXX_STANDARD 11)
 
 link_directories(${PCL_LIBRARY_DIRS})
 
