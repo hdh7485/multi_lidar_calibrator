@@ -4,6 +4,11 @@ This package estimates the extrinsic calibration between two LiDAR point clouds 
 
 The `multi_lidar_calibrator` node synchronizes parent and child `sensor_msgs/msg/PointCloud2` messages, downsamples the child cloud for registration, and publishes the unfiltered child cloud transformed into the parent frame on `/points_calibrated`.
 
+## Supported branches
+
+- `ros2` — ROS 2 Jazzy on Ubuntu 24.04; the default branch.
+- `ros1` — ROS 1 Noetic on Ubuntu 20.04; the maintained legacy branch.
+
 ## ROS 2 Jazzy
 
 The ROS 2 port targets **ROS 2 Jazzy on Ubuntu 24.04** and uses `ament_cmake`, C++17, PCL, and `message_filters` approximate-time synchronization.
@@ -90,7 +95,7 @@ colcon test-result --verbose
 
 The following commands were used with Apple `container` on the host. The bind mount is the repository root, and the resource limit avoids the memory pressure seen with an unrestricted ROS 1 build.
 
-ROS 1 baseline (`refactor/resource-ownership`; run this command while that branch is checked out):
+ROS 1 baseline (`ros1`; run this command while that branch is checked out):
 
 ```sh
 container run --rm --memory 6G --cpus 4 \
