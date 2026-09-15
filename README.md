@@ -17,7 +17,7 @@ Using rosrun
 
 Using roslaunch
 
-`roslaunch multi_lidar_calibrator multi_lidar_calibrator points_child_src:=/lidar_child/points_raw points_parent_src:=/lidar_parent/points_raw x:=0.0 y:=0.0 z:=0.0 roll:=0.0 pitch:=0.0 yaw:=0.0`
+`roslaunch multi_lidar_calibrator multi_lidar_calibrator.launch points_child_src:=/lidar_child/points_raw points_parent_src:=/lidar_parent/points_raw x:=0.0 y:=0.0 z:=0.0 roll:=0.0 pitch:=0.0 yaw:=0.0`
 
 3. Play a rosbag with both lidar data `/lidar_child/points_raw` and `/lidar_parent/points_raw`
 
@@ -35,11 +35,11 @@ Using roslaunch
 ----------|-----|--------
 |`points_parent_src`|*String* |PointCloud topic name to subscribe and synchronize with the child.|
 |`points_child_src`|*String*|PointCloud topic name to subscribe and synchronize with the parent.|
-|`voxel_size`|*double*|Size of the Voxel used to downsample the CHILD pointcloud. Default: 0.5|
+|`voxel_size`|*double*|Size of the Voxel used to downsample the CHILD pointcloud. Default: 0.1 (direct node execution); the supplied launch files use 1.0|
 |`ndt_epsilon`|*double*|The transformation epsilon in order for an optimization to be considered as having converged to the final solution. Default: 0.01|
 |`ndt_step_size`|*double*|Set/change the newton line search maximum step length. Default: 0.1|
 |`ndt_resolution`|*double*|Size of the Voxel used to downsample the PARENT pointcloud. Default: 1.0|
-|`ndt_iterations`|*double*|The maximum number of iterations the internal optimization should run for. Default: 400|
+|`ndt_iterations`|*int*|The maximum number of iterations the internal optimization should run for. Default: 400|
 |`x`|*double*|Initial Guess of the transformation x. Meters|
 |`y`|*double*|Initial Guess of the transformation y. Meters|
 |`z`|*double*|Initial Guess of the transformation z. Meters|
@@ -66,3 +66,19 @@ One is shown in gray while the other is show in blue.
 Image obtained from rviz.
 
 ![Calibration Result](doc/calibration_result.jpg)
+
+## Regression test
+
+In a ROS 1 catkin workspace with this package and its test dependencies installed:
+
+```sh
+catkin_make
+source devel/setup.bash
+catkin_make run_tests_multi_lidar_calibrator
+catkin_test_results
+```
+
+The rostest publishes synthetic parent and child clouds and checks that the
+calibrated output uses the parent frame, preserves the child timestamp and
+unfiltered point count/intensity, and remains close to identity for identical
+clouds. It does not replace calibration validation with real sensor recordings.
