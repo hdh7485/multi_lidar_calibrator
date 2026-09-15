@@ -5,6 +5,11 @@ This package allows to obtain the extrinsic calibration between two PointClouds 
 The `multi_lidar_calibrator` node receives two `PointCloud2` messages (parent and child), and an initialization pose.
 If possible, the transformation required to transform the child to the parent point cloud is calculated, and output to the terminal.
 
+## Supported branches
+
+- `ros2` — ROS 2 Jazzy on Ubuntu 24.04; the default branch.
+- `ros1` — ROS 1 Noetic on Ubuntu 20.04; this maintained legacy branch.
+
 ## How to launch
 
 1. **You'll need to provide an initial guess, otherwise the transformation won't converge.**

@@ -1,0 +1,39 @@
+name: ROS 1 CI
+
+on:
+  push:
+    branches: [ros1]
+  pull_request:
+    branches: [ros1]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    container: ros:noetic-ros-base-focal
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake libpcl-dev ros-noetic-pcl-ros \
+            ros-noetic-pcl-conversions ros-noetic-message-filters \
+            ros-noetic-rostest python3-rosunit
+
+      - name: Build and test
+        shell: bash
+        run: |
+          source /opt/ros/noetic/setup.bash
+          mkdir -p /ws/src
+          ln -s "$GITHUB_WORKSPACE" /ws/src/multi_lidar_calibrator
+          cd /ws
+          catkin_make -j2
+          source devel/setup.bash
+          catkin_make run_tests_multi_lidar_calibrator -j2
+          catkin_test_results

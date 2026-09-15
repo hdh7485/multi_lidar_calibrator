@@ -2,6 +2,13 @@
 Changelog for package multi_lidar_calibrator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.10.1 (2026-09-15)
+--------------------
+* Make point-cloud ownership and output metadata handling explicit.
+* Add a ROS 1 Noetic identity calibration regression test.
+* Add reproducible Apple Container verification and GitHub Actions CI.
+* Document the maintained ``ros1`` branch and ROS 2 default branch.
+
 1.10.0 (2019-01-17)
 -------------------
 * Switch to Apache 2 license (develop branch) (`#1741 <https://github.com/kfunaoka/Autoware/issues/1741>`_)
