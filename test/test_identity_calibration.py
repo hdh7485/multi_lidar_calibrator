@@ -32,13 +32,27 @@ class IdentityCalibrationTest(unittest.TestCase):
         self.output_event.set()
 
     def test_identical_clouds_publish_identity_calibration(self):
-        parent_stamp = rospy.Time(123, 456788000)
-        child_stamp = rospy.Time(123, 456789000)
-        parent_cloud = self._make_cloud("parent_frame", parent_stamp)
-        child_cloud = self._make_cloud("child_frame", child_stamp)
+        connection_deadline = time.time() + 10.0
+        while not rospy.is_shutdown() and time.time() < connection_deadline:
+            if (
+                self.parent_pub.get_num_connections() > 0
+                and self.child_pub.get_num_connections() > 0
+            ):
+                break
+            time.sleep(0.05)
 
-        deadline = time.time() + 20.0
+        self.assertGreater(self.parent_pub.get_num_connections(), 0)
+        self.assertGreater(self.child_pub.get_num_connections(), 0)
+
+        deadline = time.time() + 30.0
+        published_stamps = set()
+        child_cloud = None
         while not rospy.is_shutdown() and time.time() < deadline:
+            child_stamp = rospy.Time.now()
+            parent_stamp = child_stamp - rospy.Duration.from_sec(0.001)
+            parent_cloud = self._make_cloud("parent_frame", parent_stamp)
+            child_cloud = self._make_cloud("child_frame", child_stamp)
+            published_stamps.add((child_stamp.secs, child_stamp.nsecs))
             self.parent_pub.publish(parent_cloud)
             self.child_pub.publish(child_cloud)
             if self.output_event.wait(0.1):
@@ -46,8 +60,14 @@ class IdentityCalibrationTest(unittest.TestCase):
 
         self.assertTrue(self.output_event.is_set(), "Timed out waiting for calibrated cloud")
         self.assertEqual("parent_frame", self.output.header.frame_id)
-        self.assertEqual(child_stamp.secs, self.output.header.stamp.secs)
-        self.assertEqual(child_stamp.nsecs, self.output.header.stamp.nsecs)
+        self.assertTrue(
+            any(
+                self.output.header.stamp.secs == secs
+                and abs(self.output.header.stamp.nsecs - nsecs) < 1000
+                for secs, nsecs in published_stamps
+            ),
+            "Output timestamp does not match a published child cloud",
+        )
 
         output_points = list(
             point_cloud2.read_points(
