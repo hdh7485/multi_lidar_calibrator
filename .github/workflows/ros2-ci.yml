@@ -1,0 +1,46 @@
+name: ROS 2 CI
+
+on:
+  push:
+    branches: [ros2]
+  pull_request:
+    branches: [ros2]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    container: ros:jazzy-ros-base
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential libpcl-dev ros-jazzy-pcl-conversions \
+            ros-jazzy-message-filters ros-jazzy-launch-testing-ament-cmake \
+            ros-jazzy-sensor-msgs-py
+
+      - name: Build
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          mkdir -p /ws/src
+          ln -s "$GITHUB_WORKSPACE" /ws/src/multi_lidar_calibrator
+          cd /ws
+          colcon build --packages-select multi_lidar_calibrator
+
+      - name: Test
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source /ws/install/setup.bash
+          cd /ws
+          colcon test --packages-select multi_lidar_calibrator \
+            --event-handlers console_direct+
+          colcon test-result --verbose

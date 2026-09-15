@@ -74,14 +74,16 @@ ros2 run tf2_ros static_transform_publisher \
 
 The node subscribes to the two configured `PointCloud2` topics using approximate time synchronization. It converts messages to PCL `PointXYZI`, registers the downsampled child cloud against the parent cloud, transforms the original child cloud, and publishes `/points_calibrated`. The output frame is the parent frame and the output timestamp is the child cloud timestamp. Point count and intensity values are retained from the unfiltered child cloud.
 
-### Regression test
+### Regression tests
 
-The launch-testing regression test publishes identical synthetic parent and child clouds and verifies:
+The launch-testing suite verifies both message preservation and registration accuracy. The identity test publishes identical synthetic parent and child clouds and verifies:
 
 - output frame is the parent frame;
 - output timestamp is the child timestamp;
 - point count and intensity values are preserved; and
 - output XYZ values remain near identity.
+
+The known-transform test applies a fixed translation and yaw to an asymmetric synthetic child cloud, starts NDT from a nearby estimate, and verifies that the calibrated output recovers the expected parent cloud within the configured tolerance.
 
 Run it with:
 

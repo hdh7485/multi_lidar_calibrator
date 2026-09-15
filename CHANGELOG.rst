@@ -2,6 +2,14 @@
 Changelog for package multi_lidar_calibrator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+2.0.0 (2026-09-15)
+-------------------
+* Port the calibrator, launch files, and integration tests to ROS 2 Jazzy.
+* Preserve the original child cloud fields and timestamp in calibrated output.
+* Add identity and known-transform launch-testing coverage.
+* Add reproducible Apple Container verification and GitHub Actions CI.
+* Document the ``ros2`` default branch and maintained ``ros1`` branch.
+
 1.10.0 (2019-01-17)
 -------------------
 * Switch to Apache 2 license (develop branch) (`#1741 <https://github.com/kfunaoka/Autoware/issues/1741>`_)

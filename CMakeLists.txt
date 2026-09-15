@@ -72,6 +72,7 @@ install(PROGRAMS test/test_identity_calibration.py DESTINATION share/${PROJECT_N
 if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
   add_launch_test(test/test_identity_calibration.py)
+  add_launch_test(test/test_known_transform_calibration.py)
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
