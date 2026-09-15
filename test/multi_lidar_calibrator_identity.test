@@ -1,0 +1,19 @@
+<launch>
+    <node pkg="multi_lidar_calibrator" type="multi_lidar_calibrator" name="multi_lidar_calibrator" output="screen">
+        <param name="points_parent_src" value="/test/points_parent" />
+        <param name="points_child_src" value="/test/points_child" />
+        <param name="voxel_size" value="0.5" />
+        <param name="ndt_epsilon" value="0.01" />
+        <param name="ndt_step_size" value="0.1" />
+        <param name="ndt_resolution" value="1.0" />
+        <param name="ndt_iterations" value="30" />
+        <param name="x" value="0.0" />
+        <param name="y" value="0.0" />
+        <param name="z" value="0.0" />
+        <param name="roll" value="0.0" />
+        <param name="pitch" value="0.0" />
+        <param name="yaw" value="0.0" />
+    </node>
+
+    <test test-name="identity_calibration" pkg="multi_lidar_calibrator" type="test_identity_calibration.py" />
+</launch>

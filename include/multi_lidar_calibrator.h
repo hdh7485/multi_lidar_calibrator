@@ -24,27 +24,17 @@
 #define PROJECT_MULTI_LIDAR_CALIBRATOR_H
 
 
+#include <memory>
 #include <string>
-#include <vector>
-#include <chrono>
+
 #include <ros/ros.h>
-#include <sensor_msgs/point_cloud_conversion.h>
-#include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/PCLPointCloud2.h>
-#include <pcl_ros/transforms.h>
-#include <pcl_ros/point_cloud.h>
+#include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/registration/ndt.h>
+#include <Eigen/Core>
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
-
-
-#include <tf/tf.h>
 
 #define __APP_NAME__ "multi_lidar_calibrator"
 
@@ -53,8 +43,6 @@ class ROSMultiLidarCalibratorApp
 {
 	ros::NodeHandle                     node_handle_;
 	ros::Publisher                      calibrated_cloud_publisher_;
-
-	ros::Subscriber                     initialpose_subscriber_;
 
 	double                              voxel_size_;
 	double                              ndt_epsilon_;
@@ -70,9 +58,6 @@ class ROSMultiLidarCalibratorApp
 
 	int                                 ndt_iterations_;
 
-	//tf::Quaternion                      initialpose_quaternion_;
-	//tf::Vector3                         initialpose_position_;
-
 	std::string                         parent_frame_;
 	std::string                         child_frame_;
 
@@ -84,18 +69,18 @@ class ROSMultiLidarCalibratorApp
 
 	typedef pcl::PointXYZI              PointT;
 
-	message_filters::Subscriber<sensor_msgs::PointCloud2>   *cloud_parent_subscriber_, *cloud_child_subscriber_;
-	message_filters::Synchronizer<SyncPolicyT>              *cloud_synchronizer_;
+	// Destroy the synchronizer before the subscribers it observes.
+	std::unique_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2>> cloud_parent_subscriber_;
+	std::unique_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2>> cloud_child_subscriber_;
+	std::unique_ptr<message_filters::Synchronizer<SyncPolicyT>> cloud_synchronizer_;
 
 	/*!
 	 * Receives 2 synchronized point cloud messages.
-	 * @param[in] in_parent_cloud_msg Message containing pointcloud classified as ground.
-	 * @param[in] in_child_cloud_msg Message containing pointcloud classified as obstacle.
+	 * @param[in] in_parent_cloud_msg Reference point cloud in the parent frame.
+	 * @param[in] in_child_cloud_msg Point cloud to transform into the parent frame.
 	 */
 	void PointsCallback(const sensor_msgs::PointCloud2::ConstPtr& in_parent_cloud_msg,
 	                    const sensor_msgs::PointCloud2::ConstPtr& in_child_cloud_msg);
-
-	//void InitialPoseCallback(geometry_msgs::PoseWithCovarianceStamped::ConstPtr in_initialpose);
 
 	/*!
 	 * Obtains parameters from the command line, initializes subscribers and publishers.

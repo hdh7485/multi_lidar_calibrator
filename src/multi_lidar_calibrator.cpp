@@ -22,6 +22,14 @@
 
 #include "multi_lidar_calibrator.h"
 
+#include <iostream>
+#include <Eigen/Geometry>
+#include <boost/bind.hpp>
+#include <pcl/common/transforms.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/registration/ndt.h>
+#include <pcl_conversions/pcl_conversions.h>
+
 
 void ROSMultiLidarCalibratorApp::PublishCloud(const ros::Publisher& in_publisher, pcl::PointCloud<PointT>::ConstPtr in_cloud_to_publish_ptr)
 {
@@ -34,30 +42,26 @@ void ROSMultiLidarCalibratorApp::PublishCloud(const ros::Publisher& in_publisher
 void ROSMultiLidarCalibratorApp::PointsCallback(const sensor_msgs::PointCloud2::ConstPtr &in_parent_cloud_msg,
                                                   const sensor_msgs::PointCloud2::ConstPtr &in_child_cloud_msg)
 {
-	pcl::PointCloud<PointT>::Ptr in_parent_cloud(new pcl::PointCloud<PointT>);
-	pcl::PointCloud<PointT>::Ptr in_child_cloud(new pcl::PointCloud<PointT>);
+	pcl::PointCloud<PointT>::Ptr parent_cloud(new pcl::PointCloud<PointT>);
+	pcl::PointCloud<PointT>::Ptr child_cloud(new pcl::PointCloud<PointT>);
+	pcl::PointCloud<PointT>::Ptr child_filtered_cloud(new pcl::PointCloud<PointT>);
 
-	pcl::PointCloud<PointT>::Ptr child_filtered_cloud (new pcl::PointCloud<PointT>);
-
-	pcl::fromROSMsg(*in_parent_cloud_msg, *in_parent_cloud);
-	pcl::fromROSMsg(*in_child_cloud_msg, *in_child_cloud);
+	pcl::fromROSMsg(*in_parent_cloud_msg, *parent_cloud);
+	pcl::fromROSMsg(*in_child_cloud_msg, *child_cloud);
 
 	parent_frame_ = in_parent_cloud_msg->header.frame_id;
 	child_frame_ = in_child_cloud_msg->header.frame_id;
 
-	DownsampleCloud(in_child_cloud, child_filtered_cloud, voxel_size_);
+	DownsampleCloud(child_cloud, child_filtered_cloud, voxel_size_);
 
-	// Initializing Normal Distributions Transform (NDT).
 	pcl::NormalDistributionsTransform<PointT, PointT> ndt;
-
 	ndt.setTransformationEpsilon(ndt_epsilon_);
 	ndt.setStepSize(ndt_step_size_);
 	ndt.setResolution(ndt_resolution_);
-
 	ndt.setMaximumIterations(ndt_iterations_);
 
 	ndt.setInputSource(child_filtered_cloud);
-	ndt.setInputTarget(in_parent_cloud);
+	ndt.setInputTarget(parent_cloud);
 
 	pcl::PointCloud<PointT>::Ptr output_cloud(new pcl::PointCloud<PointT>);
 
@@ -66,11 +70,11 @@ void ROSMultiLidarCalibratorApp::PointsCallback(const sensor_msgs::PointCloud2::
 	Eigen::AngleAxisf init_rotation_y(initial_pitch_, Eigen::Vector3f::UnitY());
 	Eigen::AngleAxisf init_rotation_z(initial_yaw_, Eigen::Vector3f::UnitZ());
 
-	Eigen::Matrix4f init_guess_ = (init_translation * init_rotation_z * init_rotation_y * init_rotation_x).matrix();
+	const Eigen::Matrix4f initial_guess = (init_translation * init_rotation_z * init_rotation_y * init_rotation_x).matrix();
 
 	if(current_guess_ == Eigen::Matrix4f::Identity())
 	{
-		current_guess_ = init_guess_;
+		current_guess_ = initial_guess;
 	}
 
 	ndt.align(*output_cloud, current_guess_);
@@ -81,12 +85,12 @@ void ROSMultiLidarCalibratorApp::PointsCallback(const sensor_msgs::PointCloud2::
 	std::cout << "transformation from " << child_frame_ << " to " << parent_frame_ << std::endl;
 
 	// Transforming unfiltered, input cloud using found transform.
-	pcl::transformPointCloud (*in_child_cloud, *output_cloud, ndt.getFinalTransformation());
+	pcl::transformPointCloud(*child_cloud, *output_cloud, ndt.getFinalTransformation());
 
 	current_guess_ = ndt.getFinalTransformation();
 
-	Eigen::Matrix3f rotation_matrix = current_guess_.block(0,0,3,3);
-	Eigen::Vector3f translation_vector = current_guess_.block(0,3,3,1);
+	const Eigen::Matrix3f rotation_matrix = current_guess_.block(0,0,3,3);
+	const Eigen::Vector3f translation_vector = current_guess_.block(0,3,3,1);
 	std::cout << "This transformation can be replicated using:" << std::endl;
 	std::cout << "rosrun tf static_transform_publisher " << translation_vector.transpose()
 	          << " " << rotation_matrix.eulerAngles(2,1,0).transpose() << " /" << parent_frame_
@@ -96,31 +100,7 @@ void ROSMultiLidarCalibratorApp::PointsCallback(const sensor_msgs::PointCloud2::
 	          << std::endl << current_guess_ << std::endl << std::endl;
 
 	PublishCloud(calibrated_cloud_publisher_, output_cloud);
-	// timer end
-	//auto end = std::chrono::system_clock::now();
-	//auto usec = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-	//std::cout << "time: " << usec / 1000.0 << " [msec]" << std::endl;
-
 }
-
-/*void ROSMultiLidarCalibratorApp::InitialPoseCallback(geometry_msgs::PoseWithCovarianceStamped::ConstPtr in_initialpose)
-{
-	ROS_INFO("[%s] Initial Pose received.", __APP_NAME__);
-	tf::Quaternion pose_quaternion(in_initialpose->pose.pose.orientation.x,
-	                 in_initialpose->pose.pose.orientation.y,
-	                 in_initialpose->pose.pose.orientation.z,
-	                 in_initialpose->pose.pose.orientation.w);
-
-	//rotation
-	initialpose_quaternion_ = pose_quaternion;
-
-	//translation
-	initialpose_position_.setX(in_initialpose->pose.pose.position.x);
-	initialpose_position_.setY(in_initialpose->pose.pose.position.y);
-	initialpose_position_.setZ(in_initialpose->pose.pose.position.z);
-
-
-}*/
 
 void ROSMultiLidarCalibratorApp::DownsampleCloud(pcl::PointCloud<PointT>::ConstPtr in_cloud_ptr,
                                                  pcl::PointCloud<PointT>::Ptr out_cloud_ptr,
@@ -134,10 +114,8 @@ void ROSMultiLidarCalibratorApp::DownsampleCloud(pcl::PointCloud<PointT>::ConstP
 
 void ROSMultiLidarCalibratorApp::InitializeROSIo(ros::NodeHandle &in_private_handle)
 {
-	//get params
 	std::string points_parent_topic_str, points_child_topic_str;
-	std::string initial_pose_topic_str = "/initialpose";
-	std::string calibrated_points_topic_str = "/points_calibrated";
+	const std::string calibrated_points_topic_str = "/points_calibrated";
 
 	in_private_handle.param<std::string>("points_parent_src", points_parent_topic_str, "points_raw");
 	ROS_INFO("[%s] points_parent_src: %s",__APP_NAME__, points_parent_topic_str.c_str());
@@ -146,10 +124,10 @@ void ROSMultiLidarCalibratorApp::InitializeROSIo(ros::NodeHandle &in_private_han
 	ROS_INFO("[%s] points_child_src: %s",__APP_NAME__, points_child_topic_str.c_str());
 
 	in_private_handle.param<double>("voxel_size", voxel_size_, 0.1);
-	ROS_INFO("[%s] ndt_epsilon: %.2f",__APP_NAME__, voxel_size_);
+	ROS_INFO("[%s] voxel_size: %.2f",__APP_NAME__, voxel_size_);
 
 	in_private_handle.param<double>("ndt_epsilon", ndt_epsilon_, 0.01);
-	ROS_INFO("[%s] voxel_size: %.2f",__APP_NAME__, ndt_epsilon_);
+	ROS_INFO("[%s] ndt_epsilon: %.2f",__APP_NAME__, ndt_epsilon_);
 
 	in_private_handle.param<double>("ndt_step_size", ndt_step_size_, 0.1);
 	ROS_INFO("[%s] ndt_step_size: %.2f",__APP_NAME__, ndt_step_size_);
@@ -171,26 +149,19 @@ void ROSMultiLidarCalibratorApp::InitializeROSIo(ros::NodeHandle &in_private_han
 	         initial_x_, initial_y_, initial_z_,
 	         initial_roll_, initial_pitch_, initial_yaw_);
 
-	//generate subscribers and synchronizer
-	cloud_parent_subscriber_ = new message_filters::Subscriber<sensor_msgs::PointCloud2>(node_handle_,
-	                                                                                     points_parent_topic_str, 10);
+	cloud_parent_subscriber_.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(
+			node_handle_, points_parent_topic_str, 10));
 	ROS_INFO("[%s] Subscribing to... %s",__APP_NAME__, points_parent_topic_str.c_str());
 
-	cloud_child_subscriber_ = new message_filters::Subscriber<sensor_msgs::PointCloud2>(node_handle_,
-	                                                                                        points_child_topic_str, 10);
+	cloud_child_subscriber_.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(
+			node_handle_, points_child_topic_str, 10));
 	ROS_INFO("[%s] Subscribing to... %s",__APP_NAME__, points_child_topic_str.c_str());
-
-	/*initialpose_subscriber_ = node_handle_.subscribe(initial_pose_topic_str, 10,
-	                                                          &ROSMultiLidarCalibratorApp::InitialPoseCallback, this);
-	ROS_INFO("[%s] Subscribing to... %s",__APP_NAME__, initial_pose_topic_str.c_str());*/
 
 	calibrated_cloud_publisher_ = node_handle_.advertise<sensor_msgs::PointCloud2>(calibrated_points_topic_str, 1);
 	ROS_INFO("[%s] Publishing PointCloud to... %s",__APP_NAME__, calibrated_points_topic_str.c_str());
 
-	cloud_synchronizer_ =
-			new message_filters::Synchronizer<SyncPolicyT>(SyncPolicyT(100),
-			                                               *cloud_parent_subscriber_,
-			                                               *cloud_child_subscriber_);
+	cloud_synchronizer_.reset(new message_filters::Synchronizer<SyncPolicyT>(
+			SyncPolicyT(100), *cloud_parent_subscriber_, *cloud_child_subscriber_));
 	cloud_synchronizer_->registerCallback(boost::bind(&ROSMultiLidarCalibratorApp::PointsCallback, this, _1, _2));
 
 }
@@ -210,7 +181,17 @@ void ROSMultiLidarCalibratorApp::Run()
 }
 
 ROSMultiLidarCalibratorApp::ROSMultiLidarCalibratorApp()
+	: voxel_size_(0.0)
+	, ndt_epsilon_(0.0)
+	, ndt_step_size_(0.0)
+	, ndt_resolution_(0.0)
+	, initial_x_(0.0)
+	, initial_y_(0.0)
+	, initial_z_(0.0)
+	, initial_roll_(0.0)
+	, initial_pitch_(0.0)
+	, initial_yaw_(0.0)
+	, ndt_iterations_(0)
+	, current_guess_(Eigen::Matrix4f::Identity())
 {
-	//initialpose_quaternion_ = tf::Quaternion::getIdentity();
-	current_guess_ = Eigen::Matrix4f::Identity();
 }
