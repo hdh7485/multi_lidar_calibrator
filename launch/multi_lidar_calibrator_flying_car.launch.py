@@ -7,35 +7,27 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
 
+_PARAMETER_TYPES = {
+    "points_parent_src": str,
+    "points_child_src": str,
+    "voxel_size": float,
+    "ndt_epsilon": float,
+    "ndt_step_size": float,
+    "ndt_resolution": float,
+    "ndt_iterations": int,
+    "x": float,
+    "y": float,
+    "z": float,
+    "roll": float,
+    "pitch": float,
+    "yaw": float,
+}
+
+
 def _parameter_values():
     return {
-        "points_parent_src": ParameterValue(
-            LaunchConfiguration("points_parent_src"), value_type=str
-        ),
-        "points_child_src": ParameterValue(
-            LaunchConfiguration("points_child_src"), value_type=str
-        ),
-        "voxel_size": ParameterValue(
-            LaunchConfiguration("voxel_size"), value_type=float
-        ),
-        "ndt_epsilon": ParameterValue(
-            LaunchConfiguration("ndt_epsilon"), value_type=float
-        ),
-        "ndt_step_size": ParameterValue(
-            LaunchConfiguration("ndt_step_size"), value_type=float
-        ),
-        "ndt_resolution": ParameterValue(
-            LaunchConfiguration("ndt_resolution"), value_type=float
-        ),
-        "ndt_iterations": ParameterValue(
-            LaunchConfiguration("ndt_iterations"), value_type=int
-        ),
-        "x": ParameterValue(LaunchConfiguration("x"), value_type=float),
-        "y": ParameterValue(LaunchConfiguration("y"), value_type=float),
-        "z": ParameterValue(LaunchConfiguration("z"), value_type=float),
-        "roll": ParameterValue(LaunchConfiguration("roll"), value_type=float),
-        "pitch": ParameterValue(LaunchConfiguration("pitch"), value_type=float),
-        "yaw": ParameterValue(LaunchConfiguration("yaw"), value_type=float),
+        name: ParameterValue(LaunchConfiguration(name), value_type=value_type)
+        for name, value_type in _PARAMETER_TYPES.items()
     }
 
 

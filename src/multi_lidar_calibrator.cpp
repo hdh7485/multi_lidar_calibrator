@@ -81,8 +81,8 @@ void ROSMultiLidarCalibratorApp::PointsCallback(
 	ndt.align(*output_cloud, current_guess_);
 
 	std::cout << "Normal Distributions Transform converged: " << ndt.hasConverged()
-		      << " score: " << ndt.getFitnessScore()
-		      << " likelihood: " << ndt.getTransformationLikelihood() << std::endl;
+	          << " score: " << ndt.getFitnessScore()
+	          << " likelihood: " << ndt.getTransformationLikelihood() << std::endl;
 
 	std::cout << "transformation from " << child_frame_ << " to " << parent_frame_ << std::endl;
 
