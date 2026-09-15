@@ -1,84 +1,137 @@
 # Multi LiDAR Calibrator
 
-This package allows to obtain the extrinsic calibration between two PointClouds with the help of the NDT algorithm.
+This package estimates the extrinsic calibration between two LiDAR point clouds with the Normal Distributions Transform (NDT) algorithm.
 
-The `multi_lidar_calibrator` node receives two `PointCloud2` messages (parent and child), and an initialization pose.
-If possible, the transformation required to transform the child to the parent point cloud is calculated, and output to the terminal.
+The `multi_lidar_calibrator` node synchronizes parent and child `sensor_msgs/msg/PointCloud2` messages, downsamples the child cloud for registration, and publishes the unfiltered child cloud transformed into the parent frame on `/points_calibrated`.
 
-## How to launch
+## ROS 2 Jazzy
 
-1. **You'll need to provide an initial guess, otherwise the transformation won't converge.**
+The ROS 2 port targets **ROS 2 Jazzy on Ubuntu 24.04** and uses `ament_cmake`, C++17, PCL, and `message_filters` approximate-time synchronization.
 
-2. In a sourced terminal:
+### Build
 
-Using rosrun
-
-`rosrun multi_lidar_calibrator multi_lidar_calibrator _points_child_src:=/lidar_child/points_raw _points_parent_src:=/lidar_parent/points_raw _x:=0.0 _y:=0.0 _z:=0.0 _roll:=0.0 _pitch:=0.0 _yaw:=0.0`
-
-Using roslaunch
-
-`roslaunch multi_lidar_calibrator multi_lidar_calibrator.launch points_child_src:=/lidar_child/points_raw points_parent_src:=/lidar_parent/points_raw x:=0.0 y:=0.0 z:=0.0 roll:=0.0 pitch:=0.0 yaw:=0.0`
-
-3. Play a rosbag with both lidar data `/lidar_child/points_raw` and `/lidar_parent/points_raw`
-
-4. The resulting transformation will be shown in the terminal as shown in the *Output* section.
-
-5. Open RViz and set the fixed frame to the Parent
-
-6. Add both point cloud `/lidar_parent/points_raw` and `/points_calibrated`
-
-7. If the algorithm converged, both PointClouds will be shown in rviz.
-
-## Input topics
-
-|Parameter| Type| Description|
-----------|-----|--------
-|`points_parent_src`|*String* |PointCloud topic name to subscribe and synchronize with the child.|
-|`points_child_src`|*String*|PointCloud topic name to subscribe and synchronize with the parent.|
-|`voxel_size`|*double*|Size of the Voxel used to downsample the CHILD pointcloud. Default: 0.1 (direct node execution); the supplied launch files use 1.0|
-|`ndt_epsilon`|*double*|The transformation epsilon in order for an optimization to be considered as having converged to the final solution. Default: 0.01|
-|`ndt_step_size`|*double*|Set/change the newton line search maximum step length. Default: 0.1|
-|`ndt_resolution`|*double*|Size of the Voxel used to downsample the PARENT pointcloud. Default: 1.0|
-|`ndt_iterations`|*int*|The maximum number of iterations the internal optimization should run for. Default: 400|
-|`x`|*double*|Initial Guess of the transformation x. Meters|
-|`y`|*double*|Initial Guess of the transformation y. Meters|
-|`z`|*double*|Initial Guess of the transformation z. Meters|
-|`roll`|*double*|Initial Guess of the transformation roll. Radians|
-|`pitch`|*double*|Initial Guess of the transformation pitch. Radians|
-|`yaw`|*double*|Initial Guess of the transformation yaw. Radians|
-
-## Output
-
-1. Child Point cloud transformed to the Parent frame and published in `/points_calibrated`. 
-1. Output in the terminal showing the X,Y,Z,Yaw,Pitch,Roll transformation between child and parent. These values can be used later with the `static_transform_publisher`.
-
-
-### Output example:
-
-```
-transformation from ChildFrame to ParentFrame
-This transformation can be replicated using:
-
-rosrun tf static_transform_publisher 1.7096 -0.101048 -0.56108 1.5708 0.00830573  0.843 /ParentFrame /ChildFrame 10
-```
-The figure below shows two lidar sensors calibrated by this node.
-One is shown in gray while the other is show in blue.
-Image obtained from rviz.
-
-![Calibration Result](doc/calibration_result.jpg)
-
-## Regression test
-
-In a ROS 1 catkin workspace with this package and its test dependencies installed:
+Create a ROS 2 workspace, install dependencies, build, and source it:
 
 ```sh
-catkin_make
-source devel/setup.bash
-catkin_make run_tests_multi_lidar_calibrator
-catkin_test_results
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws/src
+git clone https://github.com/hdh7485/multi_lidar_calibrator.git
+cd ..
+source /opt/ros/jazzy/setup.bash
+rosdep update
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --symlink-install --packages-select multi_lidar_calibrator
+source install/setup.bash
 ```
 
-The rostest publishes synthetic parent and child clouds and checks that the
-calibrated output uses the parent frame, preserves the child timestamp and
-unfiltered point count/intensity, and remains close to identity for identical
-clouds. It does not replace calibration validation with real sensor recordings.
+### Run
+
+The node can be started directly with ROS 2 parameter overrides:
+
+```sh
+ros2 run multi_lidar_calibrator multi_lidar_calibrator --ros-args \
+  -p points_parent_src:=/lidar_parent/points_raw \
+  -p points_child_src:=/lidar_child/points_raw \
+  -p x:=0.0 -p y:=0.0 -p z:=0.0 \
+  -p roll:=0.0 -p pitch:=0.0 -p yaw:=0.0
+```
+
+The converted example launch files preserve the defaults from the ROS 1 XML launch files:
+
+```sh
+ros2 launch multi_lidar_calibrator multi_lidar_calibrator.launch.py
+ros2 launch multi_lidar_calibrator multi_lidar_calibrator_flying_car.launch.py
+ros2 launch multi_lidar_calibrator multi_lidar_calibrator_i30.launch.py
+```
+
+Every launch file accepts the same arguments as the original XML files, including `points_parent_src`, `points_child_src`, `voxel_size`, `ndt_epsilon`, `ndt_step_size`, `ndt_resolution`, `ndt_iterations`, `x`, `y`, `z`, `roll`, `pitch`, and `yaw`. The launch files start the executable with the historical `lidar_calibrator` launch name; direct execution uses the node name `multi_lidar_calibrator`.
+
+Provide a useful initial guess for the sensor pair before starting a recording or rosbag. The node reports the estimated transform and prints a ROS 2 static transform command. The command arguments are translation followed by yaw, pitch, roll, parent frame, and child frame:
+
+```sh
+ros2 run tf2_ros static_transform_publisher \
+  <x> <y> <z> <yaw> <pitch> <roll> <parent_frame> <child_frame>
+```
+
+### Parameters and topics
+
+| Parameter | Type | Default | Description |
+|---|---|---:|---|
+| `points_parent_src` | string | `points_raw` | Parent point-cloud topic. |
+| `points_child_src` | string | `points_raw` | Child point-cloud topic. |
+| `voxel_size` | double | `0.1` | Voxel side length used to downsample only the child cloud before NDT. |
+| `ndt_epsilon` | double | `0.01` | NDT transformation epsilon. |
+| `ndt_step_size` | double | `0.1` | NDT line-search step size. |
+| `ndt_resolution` | double | `1.0` | NDT target resolution. |
+| `ndt_iterations` | integer | `400` | Maximum NDT iterations. |
+| `x`, `y`, `z` | double | `0.0` | Initial translation guess in metres. |
+| `roll`, `pitch`, `yaw` | double | `0.0` | Initial rotation guess in radians. |
+
+The node subscribes to the two configured `PointCloud2` topics using approximate time synchronization. It converts messages to PCL `PointXYZI`, registers the downsampled child cloud against the parent cloud, transforms the original child cloud, and publishes `/points_calibrated`. The output frame is the parent frame and the output timestamp is the child cloud timestamp. Point count and intensity values are retained from the unfiltered child cloud.
+
+### Regression test
+
+The launch-testing regression test publishes identical synthetic parent and child clouds and verifies:
+
+- output frame is the parent frame;
+- output timestamp is the child timestamp;
+- point count and intensity values are preserved; and
+- output XYZ values remain near identity.
+
+Run it with:
+
+```sh
+source /opt/ros/jazzy/setup.bash
+colcon test --packages-select multi_lidar_calibrator --event-handlers console_direct+
+colcon test-result --verbose
+```
+
+## Apple container verification
+
+The following commands were used with Apple `container` on the host. The bind mount is the repository root, and the resource limit avoids the memory pressure seen with an unrestricted ROS 1 build.
+
+ROS 1 baseline (`refactor/resource-ownership`; run this command while that branch is checked out):
+
+```sh
+container run --rm --memory 6G --cpus 4 \
+  --volume "$PWD:/ws/src/multi_lidar_calibrator" \
+  --workdir /ws ros:noetic-ros-base-focal bash -lc '
+    set -euxo pipefail
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential cmake libpcl-dev ros-noetic-pcl-ros \
+      ros-noetic-pcl-conversions ros-noetic-message-filters \
+      ros-noetic-rostest python3-rosunit
+    catkin_make -j2
+    source devel/setup.bash
+    catkin_make run_tests_multi_lidar_calibrator -j2
+    catkin_test_results
+  '
+```
+
+ROS 2 Jazzy (`ros2`):
+
+```sh
+container run --rm --memory 6G --cpus 4 \
+  --volume "$PWD:/ws/src/multi_lidar_calibrator" \
+  --workdir /ws ros:jazzy-ros-base bash -lc '
+    set -eo pipefail
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential libpcl-dev ros-jazzy-pcl-conversions \
+      ros-jazzy-message-filters ros-jazzy-launch-testing-ament-cmake \
+      ros-jazzy-sensor-msgs-py
+    source /opt/ros/jazzy/setup.bash
+    colcon build --symlink-install --packages-select multi_lidar_calibrator
+    source install/setup.bash
+    colcon test --packages-select multi_lidar_calibrator \
+      --event-handlers console_direct+
+    colcon test-result --verbose
+  '
+```
+
+The ROS 1 baseline and ROS 2 port both pass their build and integration-test gates on Linux ARM64 with a 6 GB memory limit.
+
+## License
+
+Apache-2.0

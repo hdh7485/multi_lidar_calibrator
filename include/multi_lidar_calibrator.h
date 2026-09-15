@@ -12,101 +12,74 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ********************
- *  v1.0: amc-nu (abrahammonrroy@yahoo.com)
- *
- * multi_lidar_calibrator.h
- *
- *  Created on: Feb 27, 2018
  */
 
 #ifndef PROJECT_MULTI_LIDAR_CALIBRATOR_H
 #define PROJECT_MULTI_LIDAR_CALIBRATOR_H
 
-
 #include <memory>
 #include <string>
 
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 #include <Eigen/Core>
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
-#define __APP_NAME__ "multi_lidar_calibrator"
-
-class ROSMultiLidarCalibratorApp
-
+class ROSMultiLidarCalibratorApp : public rclcpp::Node
 {
-	ros::NodeHandle                     node_handle_;
-	ros::Publisher                      calibrated_cloud_publisher_;
+public:
+	ROSMultiLidarCalibratorApp();
 
-	double                              voxel_size_;
-	double                              ndt_epsilon_;
-	double                              ndt_step_size_;
-	double                              ndt_resolution_;
+private:
+	static constexpr const char * kNodeName = "multi_lidar_calibrator";
 
-	double                              initial_x_;
-	double                              initial_y_;
-	double                              initial_z_;
-	double                              initial_roll_;
-	double                              initial_pitch_;
-	double                              initial_yaw_;
+	using PointT = pcl::PointXYZI;
+	using PointCloudMsg = sensor_msgs::msg::PointCloud2;
+	using SyncPolicyT = message_filters::sync_policies::ApproximateTime<
+		PointCloudMsg, PointCloudMsg>;
 
-	int                                 ndt_iterations_;
+	void PointsCallback(
+		const PointCloudMsg::ConstSharedPtr & in_parent_cloud_msg,
+		const PointCloudMsg::ConstSharedPtr & in_child_cloud_msg);
 
-	std::string                         parent_frame_;
-	std::string                         child_frame_;
+	void DownsampleCloud(
+		pcl::PointCloud<PointT>::ConstPtr in_cloud_ptr,
+		pcl::PointCloud<PointT>::Ptr out_cloud_ptr,
+		double in_leaf_size);
 
-	Eigen::Matrix4f                     current_guess_;
+	void PublishCloud(
+		const pcl::PointCloud<PointT>::ConstPtr & in_cloud_to_publish_ptr,
+		const PointCloudMsg::ConstSharedPtr & source_cloud_msg);
 
-	typedef
-	message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2,
-			sensor_msgs::PointCloud2>   SyncPolicyT;
+	double voxel_size_;
+	double ndt_epsilon_;
+	double ndt_step_size_;
+	double ndt_resolution_;
 
-	typedef pcl::PointXYZI              PointT;
+	double initial_x_;
+	double initial_y_;
+	double initial_z_;
+	double initial_roll_;
+	double initial_pitch_;
+	double initial_yaw_;
+
+	int ndt_iterations_;
+
+	std::string parent_frame_;
+	std::string child_frame_;
+
+	Eigen::Matrix4f current_guess_;
+
+	rclcpp::Publisher<PointCloudMsg>::SharedPtr calibrated_cloud_publisher_;
 
 	// Destroy the synchronizer before the subscribers it observes.
-	std::unique_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2>> cloud_parent_subscriber_;
-	std::unique_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2>> cloud_child_subscriber_;
+	std::unique_ptr<message_filters::Subscriber<PointCloudMsg>> cloud_parent_subscriber_;
+	std::unique_ptr<message_filters::Subscriber<PointCloudMsg>> cloud_child_subscriber_;
 	std::unique_ptr<message_filters::Synchronizer<SyncPolicyT>> cloud_synchronizer_;
-
-	/*!
-	 * Receives 2 synchronized point cloud messages.
-	 * @param[in] in_parent_cloud_msg Reference point cloud in the parent frame.
-	 * @param[in] in_child_cloud_msg Point cloud to transform into the parent frame.
-	 */
-	void PointsCallback(const sensor_msgs::PointCloud2::ConstPtr& in_parent_cloud_msg,
-	                    const sensor_msgs::PointCloud2::ConstPtr& in_child_cloud_msg);
-
-	/*!
-	 * Obtains parameters from the command line, initializes subscribers and publishers.
-	 * @param in_private_handle ROS private handle to get parameters for this node.
-	 */
-	void InitializeROSIo(ros::NodeHandle& in_private_handle);
-
-	/*!
-	 * Applies a Voxel Grid filter to the point cloud
-	 * @param in_cloud_ptr point cloud to downsample
-	 * @param out_cloud_ptr downsampled point cloud
-	 * @param in_leaf_size voxel side size
-	 */
-	void DownsampleCloud(pcl::PointCloud<PointT>::ConstPtr in_cloud_ptr, pcl::PointCloud<PointT>::Ptr out_cloud_ptr, double in_leaf_size);
-
-	/*!
-	 * Publishes a PointCloud in the specified publisher
-	 * @param in_publisher Publisher to use
-	 * @param in_cloud_to_publish_ptr Cloud to Publish
-	 */
-	void PublishCloud(const ros::Publisher& in_publisher, pcl::PointCloud<PointT>::ConstPtr in_cloud_to_publish_ptr);
-
-public:
-	void Run();
-
-	ROSMultiLidarCalibratorApp();
 };
 
-#endif //PROJECT_MULTI_LIDAR_CALIBRATOR_H
+#endif  // PROJECT_MULTI_LIDAR_CALIBRATOR_H

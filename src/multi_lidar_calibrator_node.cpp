@@ -12,23 +12,15 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ********************
- *  v1.0: amc-nu (abrahammonrroy@yahoo.com)
- *
- * multi_lidar_calibrator_node.cpp
- *
- *  Created on: Feb 27 2018
  */
 
 #include "multi_lidar_calibrator.h"
 
-int main(int argc, char **argv)
+int main(int argc, char ** argv)
 {
-	ros::init(argc, argv, __APP_NAME__);
-
-	ROSMultiLidarCalibratorApp app;
-
-	app.Run();
-
+	rclcpp::init(argc, argv);
+	auto app = std::make_shared<ROSMultiLidarCalibratorApp>();
+	rclcpp::spin(app);
+	rclcpp::shutdown();
 	return 0;
 }
